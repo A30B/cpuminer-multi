@@ -600,8 +600,13 @@ static bool submit_upstream_work(CURL *curl, struct work *work) {
                     rpc2_id, work->job_id, noncestr, hashhex);
             free(hashhex);
         } else {
-            le32enc(&ntime, work->data[17]);
-            le32enc(&nonce, work->data[19]);
+            if (opt_algo.type == ALGO_LBRY) {
+                le32enc(&ntime, work->data[25]);
+                le32enc(&nonce, work->data[27]);
+            } else {
+                le32enc(&ntime, work->data[17]);
+                le32enc(&nonce, work->data[19]);
+            }
             ntimestr = bin2hex((const unsigned char *) (&ntime), 4);
             noncestr = bin2hex((const unsigned char *) (&nonce), 4);
             xnonce2str = bin2hex(work->xnonce2, work->xnonce2_len);
@@ -1001,9 +1006,17 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work) {
             work->data[1 + i] = le32dec((uint32_t *) sctx->job.prevhash + i);
         for (i = 0; i < 8; i++)
             work->data[9 + i] = be32dec((uint32_t *) merkle_root + i);
-        work->data[17] = le32dec(sctx->job.ntime);
-        work->data[18] = le32dec(sctx->job.nbits);
-        work->data[20] = 0x80000000;
+        if (opt_algo.type == ALGO_LBRY) {
+            for (i = 0; i < 8; i++)
+                work->data[17 + i] = le32dec((uint32_t *) sctx->job.claimtrie + i);
+            work->data[25] = le32dec(sctx->job.ntime);
+            work->data[26] = le32dec(sctx->job.nbits);
+            work->data[28] = 0x80000000;
+        } else {
+            work->data[17] = le32dec(sctx->job.ntime);
+            work->data[18] = le32dec(sctx->job.nbits);
+            work->data[20] = 0x80000000;
+        }
         work->data[31] = 0x00000280;
 
         pthread_mutex_unlock(&sctx->work_lock);
@@ -1011,7 +1024,7 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work) {
         if (opt_debug) {
             char *xnonce2str = bin2hex(work->xnonce2, work->xnonce2_len);
             applog(LOG_DEBUG, "DEBUG: job_id='%s' extranonce2=%s ntime=%08x",
-                    work->job_id, xnonce2str, swab32(work->data[17]));
+                    work->job_id, xnonce2str, swab32(work->data[opt_algo.type == ALGO_LBRY ? 25 : 17]));
             free(xnonce2str);
         }
 
@@ -1021,6 +1034,7 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work) {
                 break;
             case ALGO_FRESH:
             case ALGO_GROESTL:
+            case ALGO_LBRY:
                 work_set_target(work, sctx->job.diff / (256.0 * opt_diff_factor));
                 break;
             case ALGO_KECCAK:
@@ -1094,7 +1108,7 @@ static void *miner_thread(void *userdata) {
     }
 
     if (opt_algo.init_contexts) opt_algo.init_contexts(&opt_scrypt_n);
-    uint32_t *nonceptr = (uint32_t*) (((char*)work.data) + (jsonrpc_2 ? 39 : 76));
+    uint32_t *nonceptr = (uint32_t*) (((char*)work.data) + (jsonrpc_2 ? 39 : (opt_algo.type == ALGO_LBRY ? 108 : 76)));
 
     while (1) {
         uint64_t hashes_done;
@@ -1134,7 +1148,7 @@ static void *miner_thread(void *userdata) {
         if (jsonrpc_2 ? memcmp(work.data, g_work.data, 39) || memcmp(((uint8_t*) work.data) + 43, ((uint8_t*) g_work.data) + 43, 33) : memcmp(work.data, g_work.data, 76)) {
             work_free(&work);
             work_copy(&work, &g_work);
-            nonceptr = (uint32_t*) (((char*)work.data) + (jsonrpc_2 ? 39 : 76));
+            nonceptr = (uint32_t*) (((char*)work.data) + (jsonrpc_2 ? 39 : (opt_algo.type == ALGO_LBRY ? 108 : 76)));
             *nonceptr = 0xffffffffU / opt_n_threads * thr_id;
         } else
             ++(*nonceptr);
@@ -1158,6 +1172,9 @@ static void *miner_thread(void *userdata) {
                 break;
             case ALGO_FRESH:
                 max64 = 0x3ffff;
+                break;
+            case ALGO_LBRY:
+                max64 = 0x1ffff;
                 break;
             case ALGO_X13:
                 max64 = 0x1ffff;

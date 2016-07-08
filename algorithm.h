@@ -17,6 +17,7 @@ typedef enum {
     ALGO_SHAVITE3,    /* Shavite3 */
     ALGO_BLAKE,       /* Blake */
     ALGO_FRESH,       /* Fresh */
+    ALGO_LBRY,        /* lbrycr */
     ALGO_X11,         /* X11 */
     ALGO_X13,         /* X13 */
     ALGO_X14,         /* X14 */

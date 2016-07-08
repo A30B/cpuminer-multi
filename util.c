@@ -1062,28 +1062,33 @@ static bool stratum_2_job(struct stratum_ctx *sctx, json_t *params)
 
 static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 {
-	const char *job_id, *prevhash, *coinb1, *coinb2, *version, *nbits, *ntime;
+	const char *job_id, *prevhash, *claimtrie, *coinb1, *coinb2, *version, *nbits, *ntime;
 	size_t coinb1_size, coinb2_size;
-	bool clean, ret = false;
+	bool clean, ret = false, has_claimtrie = false;
 	int merkle_count, i;
 	json_t *merkle_arr;
 	unsigned char **merkle;
 
-	job_id = json_string_value(json_array_get(params, 0));
-	prevhash = json_string_value(json_array_get(params, 1));
-	coinb1 = json_string_value(json_array_get(params, 2));
-	coinb2 = json_string_value(json_array_get(params, 3));
-	merkle_arr = json_array_get(params, 4);
+	i = 0;
+	has_claimtrie = json_array_size(params) == 10;
+	job_id = json_string_value(json_array_get(params, i++));
+	prevhash = json_string_value(json_array_get(params, i++));
+	if (has_claimtrie) {
+		claimtrie = json_string_value(json_array_get(params, i++));
+	}
+	coinb1 = json_string_value(json_array_get(params, i++));
+	coinb2 = json_string_value(json_array_get(params, i++));
+	merkle_arr = json_array_get(params, i++);
 	if (!merkle_arr || !json_is_array(merkle_arr))
 		goto out;
 	merkle_count = json_array_size(merkle_arr);
-	version = json_string_value(json_array_get(params, 5));
-	nbits = json_string_value(json_array_get(params, 6));
-	ntime = json_string_value(json_array_get(params, 7));
-	clean = json_is_true(json_array_get(params, 8));
+	version = json_string_value(json_array_get(params, i++));
+	nbits = json_string_value(json_array_get(params, i++));
+	ntime = json_string_value(json_array_get(params, i++));
+	clean = json_is_true(json_array_get(params, i));
 
-	if (!job_id || !prevhash || !coinb1 || !coinb2 || !version || !nbits || !ntime ||
-	    strlen(prevhash) != 64 || strlen(version) != 8 ||
+	if (!job_id || !prevhash || (has_claimtrie && !claimtrie) || !coinb1 || !coinb2 || !version || !nbits || !ntime ||
+	    strlen(prevhash) != 64 || (has_claimtrie && strlen(claimtrie) != 64) || strlen(version) != 8 ||
 	    strlen(nbits) != 8 || strlen(ntime) != 8) {
 		applog(LOG_ERR, "Stratum notify: invalid parameters");
 		goto out;
@@ -1119,6 +1124,8 @@ static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 	free(sctx->job.job_id);
 	sctx->job.job_id = strdup(job_id);
 	hex2bin(sctx->job.prevhash, prevhash, 32);
+	if (has_claimtrie)
+		hex2bin(sctx->job.claimtrie, claimtrie, 32);
 
 	for (i = 0; i < sctx->job.merkle_count; i++)
 		free(sctx->job.merkle[i]);

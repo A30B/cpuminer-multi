@@ -226,6 +226,7 @@ struct work {
 struct stratum_job {
 	char *job_id;
 	unsigned char prevhash[32];
+	unsigned char claimtrie[32];
 	size_t coinbase_size;
 	unsigned char *coinbase;
 	unsigned char *xnonce2;

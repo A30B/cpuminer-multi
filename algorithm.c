@@ -20,6 +20,7 @@ SCANHASH(skein);
 SCANHASH(ink);
 SCANHASH(blake);
 SCANHASH(fresh);
+SCANHASH(lbry);
 SCANHASH(x11);
 SCANHASH(x13);
 SCANHASH(x14);
@@ -35,6 +36,7 @@ algorithm_t algos[] = {
     { "sha256d",     ALGO_SHA256D,    "SHA-256d", sha256d, scanhash_sha256d, NULL },
     { "blake",       ALGO_BLAKE,      "Blake", sha256d, scanhash_blake, init_blake_contexts },
     { "fresh",       ALGO_FRESH,      "Fresh", sha256d, scanhash_fresh, init_fresh_contexts },
+    { "lbry",        ALGO_LBRY,       "Lbry", sha256d, scanhash_lbry, init_lbry_contexts },
     { "heavy",       ALGO_HEAVY,      "Heavy", sha256d, scanhash_heavy, init_heavy_contexts },
     { "keccak",      ALGO_KECCAK,     "Keccak", sha256, scanhash_keccak, init_keccak_contexts },
     { "shavite3",    ALGO_SHAVITE3,   "Shavite3", sha256d, scanhash_ink, init_ink_contexts },
